@@ -20,7 +20,7 @@ joint_displacements = do_FEA(joints, members, zero_dx, zero_dy, applied_fx, appl
 
 function result = do_FEA(joints, members, zero_dx, zero_dy, applied_fx, applied_fy)
     %{
-    Function to perform Finite Element Analysis (FEA) on a truss structure
+    Function to perform Finite Element Analysis (FEA)
 
     Inputs:
       joints: Matrix containing the coordinates of joints

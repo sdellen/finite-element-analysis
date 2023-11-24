@@ -1,7 +1,7 @@
 clear; clc;
 
-ult_tensile = 500e6;
-ult_compressive = -250e6;
+ult_tensile = 250e6;
+ult_compressive = -152e6;
 
 joints = [0, 0;
          4, 0;
@@ -24,7 +24,7 @@ joint_displacements = do_FEA(joints, members, zero_dx, zero_dy, applied_fx, appl
 
 function result = do_FEA(joints, members, zero_dx, zero_dy, applied_fx, applied_fy)
     %{
-    Function to perform Finite Element Analysis (FEA) on a truss structure
+    Function to perform Finite Element Analysis (FEA)
 
     Inputs:
       joints: Matrix containing the coordinates of joints
@@ -62,27 +62,21 @@ function result = do_FEA(joints, members, zero_dx, zero_dy, applied_fx, applied_
     relevent_forces = zeros(num_joints * 2, 1);
 
     % Apply external forces at specified joints
-    for i = 1:size(applied_fx, 1)
-        relevent_forces(max(applied_fx(i, 1) * 2 - 1, 1), 1) = applied_fx(i, 2);
+    if applied_fx
+        relevent_forces(applied_fx(:, 1) * 2 - 1, 1) = applied_fx(:, 2);
     end
-
-    for i = 1:size(applied_fy, 1)
-        relevent_forces(max(applied_fy(i, 1) * 2, 2), 1) = applied_fy(i, 2);
+    if applied_fy
+        relevent_forces(applied_fy(:, 1) * 2, 1) = applied_fy(:, 2);
     end
 
     % Remove constrained degrees of freedom from the force vector
     relevent_forces = relevent_forces(~ismember(1:num_joints * 2, union(zero_dx * 2 - 1, zero_dy * 2)));
 
     % set displacements known to be constrained to 0
-    for i = 1:length(zero_dx)
-        dl(:, max(zero_dx(i) * 2 - 1, 1)) = 0;
-        dl(max(zero_dx(i) * 2 - 1, 1), :) = 0;
-    end
-
-    for i = 1:length(zero_dy)
-        dl(:, max(zero_dy(i) * 2, 2)) = 0;
-        dl(max(zero_dy(i) * 2, 2), :) = 0;
-    end
+    dl(:, zero_dx * 2 - 1) = 0;
+    dl(zero_dx * 2 - 1, :) = 0;
+    dl(:, zero_dy * 2) = 0;
+    dl(zero_dy * 2, :) = 0;
 
     % Solve for the nodal displacements using the stiffness matrix
     dl = dl(any(dl), any(dl));
@@ -91,20 +85,14 @@ function result = do_FEA(joints, members, zero_dx, zero_dy, applied_fx, applied_
     % Reconstruct the full displacement vector with zero displacements
     d = zeros(num_joints * 2, 1);
 
-    % Populate the displacement vector with non-zero displacements
-    for i = 1:num_joints * 2
-        if mod(i, 2) == 1
-            if ~ismember((i + 1) / 2, zero_dx)
-                d(i) = dl(1);
-                dl = dl(2:end);
-            end
-        else
-            if ~ismember(i / 2, zero_dy)
-                d(i) = dl(1);
-                dl = dl(2:end);
-            end
-        end
-    end
+
+    % Populate the displacement vector with non-zero displacements using index arrays
+    non_zero_dx_indices = setdiff(1:2:num_joints*2, zero_dx * 2 - 1);
+    non_zero_dy_indices = setdiff(2:2:num_joints*2, zero_dy * 2);
+    
+    non_zero_indices = sort([non_zero_dx_indices, non_zero_dy_indices]);
+    
+    d(non_zero_indices) = dl(1:length(non_zero_indices));
 
     % Calculate nodal forces in each member
     f = K * d;
@@ -115,7 +103,7 @@ function result = do_FEA(joints, members, zero_dx, zero_dy, applied_fx, applied_
     for i = 1:length(s)
         fn = 2 * members(i, 1) - 1;
         sn = 2 * members(i, 2) - 1;
-
+        
         s(i, 1) = E(i) / member_lengths(i) * [-1, 1] * [cos(member_angles(i)), sin(member_angles(i)), 0, 0; 0, 0, cos(member_angles(i)), sin(member_angles(i))] * [d(fn:fn+1); d(sn:sn+1)];
     end
 
